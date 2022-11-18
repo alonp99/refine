@@ -1,4 +1,4 @@
-import { createUIGroup, validatePrompt } from ".";
+import { createUIGroup, onSelectChoiceHandler, validatePrompt } from ".";
 
 test("Validate interactive prompt", () => {
     const testCases = [
@@ -110,4 +110,57 @@ test("Categorize UI Group", () => {
         const result = createUIGroup(testCase.input);
         expect(result).toEqual(testCase.output);
     });
+});
+
+test("Validate onAnswer", () => {
+    const packages = [
+        "@pankod/refine-airtable@2.7.8",
+        "@pankod/refine-airtable@1.7.8",
+        "@pankod/refine-core@3.88.4",
+        "@pankod/refine-simple-rest@2.7.8",
+        "@pankod/refine-simple-rest@3.35.2",
+    ];
+
+    const answer: string[] = [];
+    // eslint-disable-next-line prefer-const
+    let lastAnswer: string[] = [];
+    // eslint-disable-next-line prefer-const
+    let result: string[] = [];
+
+    // simulate user input
+    const addChoice = (choice: string) => {
+        answer.push(choice);
+        onSelectChoiceHandler({ answer, lastAnswer, result });
+        lastAnswer = [...answer];
+    };
+
+    // simulate user input
+    const removeChoice = (choice: string) => {
+        const index = answer.findIndex((item) => item === choice);
+        answer.splice(index, 1);
+        onSelectChoiceHandler({ answer, lastAnswer, result });
+        lastAnswer = [...answer];
+    };
+
+    for (let i = 0; i <= 4; i++) {
+        console.log("-----", i, "-----");
+        addChoice(packages[i]);
+    }
+    expect(result).toEqual([
+        "@pankod/refine-airtable@1.7.8",
+        "@pankod/refine-core@3.88.4",
+        "@pankod/refine-simple-rest@3.35.2",
+    ]);
+
+    removeChoice("@pankod/refine-core@3.88.4");
+    expect(result).toEqual([
+        "@pankod/refine-airtable@1.7.8",
+        "@pankod/refine-simple-rest@3.35.2",
+    ]);
+
+    removeChoice("@pankod/refine-airtable@1.7.8");
+    removeChoice("@pankod/refine-airtable@2.7.8");
+    addChoice("@pankod/refine-airtable@1.7.8");
+    addChoice("@pankod/refine-airtable@2.7.8");
+    expect(result).toEqual(["@pankod/refine-airtable@2.7.8"]);
 });

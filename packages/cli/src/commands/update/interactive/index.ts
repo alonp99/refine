@@ -5,7 +5,7 @@ import {
 } from "src/lib/package-manager";
 import semverDiff from "semver-diff";
 import chalk from "chalk";
-import { findDuplicates } from "src/utils/array";
+import { findDiffrences, findDuplicates } from "src/utils/array";
 
 type UIGroup = {
     patch: {
@@ -29,20 +29,82 @@ export const promptInteractiveRefineUpdate = async (packages: RefinePckg[]) => {
     const uiGroup = createUIGroup(packages);
     const inquirerUI = createInquirerUI(uiGroup);
 
-    const answers = await inquirer.prompt<{
-        packages: string[];
-    }>([
-        {
-            type: "checkbox",
-            name: "packages",
-            message: "Choose packages to update",
-            pageSize: inquirerUI.pageSize,
-            choices: inquirerUI.choices,
-            validate: validatePrompt,
-        },
-    ]);
+    // eslint-disable-next-line prefer-const
+    let result: string[] = [];
+    // eslint-disable-next-line prefer-const
+    let lastAnswer: string[] = [];
 
-    return answers.packages.length > 0 ? answers.packages : null;
+    inquirer
+        .prompt<{
+            packages: string[];
+        }>([
+            {
+                type: "checkbox",
+                name: "packages",
+                message: "Choose packages to update",
+                pageSize: inquirerUI.pageSize,
+                choices: inquirerUI.choices,
+            },
+        ])
+        .ui.process.subscribe({
+            next: ({ answer }) => {
+                result.push("1");
+            },
+            complete: () => console.log("complete", result),
+        });
+
+    return null;
+
+    // return answers.packages.length > 0 ? answers.packages : null;
+};
+
+export const onSelectChoiceHandler = (props: {
+    answer: string[];
+    lastAnswer: string[];
+    result: string[];
+}) => {
+    const { answer, result, lastAnswer } = props;
+
+    const currentSelected = findDiffrences(answer, lastAnswer)?.[0] as string;
+    if (!currentSelected) {
+        console.log("not found", {
+            answer,
+            lastAnswer,
+            result,
+            currentSelected,
+        });
+        return;
+    }
+
+    const actionType = lastAnswer.length > answer.length ? "remove" : "add";
+    if (actionType === "remove") {
+        const index = result.findIndex((item) => item === currentSelected);
+        result.splice(index, 1);
+        console.log("remove", {
+            answer,
+            lastAnswer,
+            result,
+            currentSelected,
+            actionType,
+        });
+        return;
+    }
+    const currentSelectedParsed = parsePackageNameAndVersion(currentSelected);
+    const isExist = result.findIndex((pckg) =>
+        pckg.startsWith(currentSelectedParsed.name),
+    );
+    if (isExist !== -1) {
+        result.splice(isExist, 1);
+    }
+    result.push(currentSelected);
+    console.log({
+        answer,
+        lastAnswer,
+        result,
+        currentSelected,
+        isExist,
+        actionType,
+    });
 };
 
 export const validatePrompt = (input: string[]) => {
